@@ -66,10 +66,24 @@ export function mongolianNumToWords(num, isAttribute = false) {
  * spoken word equivalents. Numbers followed by a word use modifier forms.
  */
 export function normalizeMongolianNumbers(text) {
-  return text.replace(/(\d+)(\s+[а-яА-ЯёЁөӨүҮa-zA-Z]+)?/g, (_, numStr, followingWord) => {
-    const num = parseInt(numStr, 10);
+  // 1. Expand common symbols into words first so they trigger the attribute forms (e.g., "мянган")
+  let processedText = text
+    .replace(/₮/g, " төгрөг")
+    .replace(/%/g, " хувь");
+
+  // 2. Match numbers with optional thousands separators (comma, apostrophe, period, or space)
+  // This safely captures "40,000", "40'000", "40 000", or just "40000"
+  const numberRegex = /(\d{1,3}(?:[.,' ]\d{3})+|\d+)(\s*[а-яА-ЯёЁөӨүҮa-zA-Z]+)?/g;
+
+  return processedText.replace(numberRegex, (_, numStr, followingWord) => {
+    // 3. Strip out the separators to parse the integer cleanly
+    const cleanNumStr = numStr.replace(/[.,' ]/g, "");
+    const num = parseInt(cleanNumStr, 10);
+    
+    // 4. Determine if it's modifying a following word
     const isAttr = !!(followingWord && followingWord.trim().length > 0);
     const inWords = mongolianNumToWords(num, isAttr);
+    
     return followingWord ? inWords + followingWord : inWords;
   });
 }
