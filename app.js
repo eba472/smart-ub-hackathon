@@ -156,6 +156,15 @@ function sendHeldAudio() {
   if (heldChunks.length === 0) return;
 
   const totalLen = heldChunks.reduce((s, c) => s + c.length, 0);
+  
+  // FIX: If the recording is less than 0.3 seconds, it was an accidental quick click.
+  // Ignore it completely so we don't lock the UI or spam the server.
+  if (totalLen < SAMPLE_RATE * 0.3) {
+    heldChunks = [];
+    setStatus("Товч дарж ярина уу");
+    return;
+  }
+
   const combined = new Float32Array(totalLen);
   let offset = 0;
   for (const c of heldChunks) { combined.set(c, offset); offset += c.length; }
@@ -216,6 +225,12 @@ async function handleServerMessage(msg) {
   switch (msg.type) {
     case "status":
       setStatus(msg.text);
+      // FIX: Unlock the UI if the server failed STT or rejected short audio
+      // without triggering an "audio" or "error" event.
+      if (msg.text.includes("Дахин оролдоно уу")) {
+        isBusy = false;
+        micBtn.classList.remove("speaking");
+      }
       break;
     case "transcript":
       addMessage(msg.role, msg.text, msg.action);
