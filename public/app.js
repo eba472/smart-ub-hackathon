@@ -17,13 +17,22 @@ const SAMPLE_RATE = 16000;
 
 function setStatus(text) { statusEl.textContent = text; }
 
-function addMessage(role, text) {
+function addMessage(role, text, action) {
   const el = document.createElement("div");
   el.className = `message ${role}`;
+  if (action === "clarify") el.classList.add("clarify");
   el.textContent = text;
   transcript.appendChild(el);
   transcript.scrollTop = transcript.scrollHeight;
   return el;
+}
+
+function addRoutedCard(department, departmentLabel, summary) {
+  const el = document.createElement("div");
+  el.className = "message routed";
+  el.innerHTML = `<span class="routed-icon">✓</span><strong>${departmentLabel}</strong><br><span class="routed-summary">${summary}</span>`;
+  transcript.appendChild(el);
+  transcript.scrollTop = transcript.scrollHeight;
 }
 
 // --- Audio context ---
@@ -178,7 +187,7 @@ function connect() {
   };
 
   ws.onerror = () => { setStatus("Алдаа гарлаа."); cleanup(); };
-  ws.onclose = () => { if (isConnected) { setStatus("Холболт тасарлаа."); cleanup(); } };
+  ws.onclose = () => { cleanup(); };
 }
 
 function disconnect() {
@@ -194,7 +203,7 @@ function cleanup() {
   stopMic();
   if (audioCtx && audioCtx.state !== "closed") { audioCtx.close(); audioCtx = null; }
   micBtn.classList.remove("listening", "speaking");
-  setStatus("Дарж эхлүүлнэ үү");
+  setStatus("Товч дарж ярина уу");
 }
 
 // --- Server messages ---
@@ -205,7 +214,10 @@ async function handleServerMessage(msg) {
       setStatus(msg.text);
       break;
     case "transcript":
-      addMessage(msg.role, msg.text);
+      addMessage(msg.role, msg.text, msg.action);
+      break;
+    case "routed":
+      addRoutedCard(msg.department, msg.departmentLabel, msg.summary);
       break;
     case "audio":
       await playWav(msg.audio);
@@ -225,11 +237,7 @@ async function handleServerMessage(msg) {
 
 function onPressStart(e) {
   e.preventDefault();
-  if (!isConnected) {
-    connect();
-    return;
-  }
-  if (isBusy) return;
+  if (!isConnected || isBusy) return;
   isHolding  = true;
   heldChunks = [];
   micBtn.classList.add("listening");
@@ -243,6 +251,9 @@ function onPressEnd(e) {
   micBtn.classList.remove("listening");
   sendHeldAudio();
 }
+
+// Auto-connect on load
+connect();
 
 // Mouse
 micBtn.addEventListener("mousedown", onPressStart);

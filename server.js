@@ -4,40 +4,11 @@ import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { readFileSync } from "fs";
+import { normalizeMongolianNumbers } from "./mongolian-numbers.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 
-// Load benefit data at startup
-const BENEFITS = JSON.parse(
-  readFileSync(join(__dirname, "data/ehalamj_data.json"), "utf-8")
-).flatMap(cat => cat.services);
-
-// Find services whose benefit_name contains any word from the query (≥3 chars)
-function findRelevantBenefits(query, limit = 5) {
-  const words = query.split(/\s+/).filter(w => w.length >= 3);
-  if (!words.length) return [];
-  return BENEFITS
-    .map(s => {
-      const name = s.benefit_name.toLowerCase();
-      const score = words.filter(w => name.includes(w.toLowerCase())).length;
-      return { s, score };
-    })
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map(({ s }) => s);
-}
-
-// Format matched benefits as a compact context block for the LLM
-function formatBenefitContext(benefits) {
-  if (!benefits.length) return "";
-  const lines = benefits.map(b =>
-    `- ${b.benefit_name}: олгох давтамж: ${b.frequency}, дүн: ${b.amount}, шалгах: ${b.system_verification}`
-  );
-  return "\n\nХолбогдох тэтгэмжийн мэдээлэл:\n" + lines.join("\n");
-}
 
 const CHIMEGE_STT_TOKEN = process.env.CHIMEGE_STT_TOKEN;
 const CHIMEGE_TTS_TOKEN = process.env.CHIMEGE_TTS_TOKEN;
@@ -54,9 +25,48 @@ const EGUNE_MODEL     = "egune-nano";
 const TTS_VOICE       = "FEMALE3v2";
 const TTS_SAMPLE_RATE = 16000;
 
+// Departments the assistant can route complaints to
+const DEPARTMENTS = {
+  "замын цагдаа": "Замын цагдаагийн газар (70110101)",
+  "нийтийн тээвэр": "Нийтийн тээврийн газар (70119911)",
+  "цэвэрлэгээ": "Нийслэлийн цэвэрлэгээний газар (70119900)",
+  "дулааны хангамж": "Улаанбаатар дулааны сүлжээ (70103600)",
+  "цахилгаан хангамж": "Улаанбаатар цахилгаан түгээх сүлжээ (70110011)",
+  "усан хангамж": "Усан хангамж ариутгах татуургын газар (70126161)",
+  "орон сууц": "Нийтийн орон сууцны газар (70124040)",
+  "хог хаягдал": "Хог тээвэрлэлтийн компани (70009900)",
+  "нийтлэг гомдол": "Улаанбаатар хотын иргэдийн төлөөлөгчдийн хурал (18003311)",
+};
+
 const SYSTEM_PROMPT = `Чиний нэр SoduraAI. Чи Улаанбаатар хотын тухай бүх зүйлийг мэддэг ухаалаг туслах юм.
-Зөвхөн монгол хэлээр ярина уу. Хариултаа товч, тодорхой, найрсаг байлгана уу.
-Хэрэглэгч тэтгэмж, тусламж, үйлчилгээний талаар асуувал мессежийн төгсгөлд "Холбогдох тэтгэмжийн мэдээлэл" хэсгийг ашиглан хариулна уу. Тэр хэсэг байхгүй бол өөрийн мэдлэгт тулгуурлана уу.`;
+Зөвхөн монгол хэлээр ярина уу.
+
+МАШ ЧУХАЛ: Хариултаа ЗААВАЛ дараах JSON форматаар өг. Өөр текст нэмж болохгүй, зөвхөн цэвэр JSON:
+{"action":"...","text":"..."}
+
+"action" утгууд:
+- "answer"  — ердийн асуулт хариулт (тэтгэмж, мэдээлэл г.м.)
+- "clarify" — гомдол/санал гаргасан боловч дэлгэрэнгүй мэдээлэл дутуу байвал тодруулах асуулт тавина
+- "route"   — гомдлын мэдээлэл бүрэн цуглуулсан тул байгууллагад чиглүүлнэ; нэмж {"department":"...","summary":"..."} оруулна
+
+Дүрмүүд:
+1. Иргэн гомдол, санал, өргөдөл гаргах гэж байвал "clarify" ашиглаж дараах мэдээллийг ДАА НЭГЭГ нэг асуулт тавин цуглуул:
+   а) Гомдлын нарийвчилсан тайлбар
+   б) Хаана болсон (хаяг, дүүрэг)
+   в) Хэзээ болсон (огноо/цаг)
+   г) Холбоо барих утас (заавал биш)
+2. Дэлгэрэнгүй мэдээлэл бүрэн болмогц "route" ашиглан зохих байгууллагад чиглүүл.
+   department талбарт яг нэг утгыг оруулна: ${Object.keys(DEPARTMENTS).join(" | ")}
+   summary талбарт гомдлын товч агуулгыг оруулна.
+3. Ердийн асуулт хариулахдаа "answer" ашиглана.
+4. "text" утга МАШ ТОВЧ: 1-2 өгүүлбэр, 150 тэмдэгтээс хэтрэхгүй.
+5. Мэндчилгээ, танилцуулга, "доор харуулав" зэрэг хэллэг бүү ашигла.
+6. Тэтгэмжийн мэдээлэл байвал "answer" ашиглана.
+
+Info:
+Жирэмсний 5 сартайгаас хүүхэд төрүүлэх хүртэлх хугацаанд олгох тэтгэмж, Сар бүр 40,000
+Бүрэн хараангүй иргэний тэтгэмж: Жилд 1 удаа, 140,000₮. 
+Э-халамж.мн сайтаар онлайн эсвэл ажлын өдрүүдэд 8:30-17:30 цагийн хооронд ТҮЦ машинаар очиж бүртгүүлэх боломжтой.`;
 
 const app = express();
 const server = createServer(app);
@@ -114,7 +124,7 @@ async function transcribe(pcmBuffer) {
   return (await res.text()).trim();
 }
 
-// LLM: messages → assistant reply string
+// LLM: messages → raw assistant reply string
 async function chat(history) {
   const res = await fetch(EGUNE_CHAT_URL, {
     method: "POST",
@@ -132,12 +142,38 @@ async function chat(history) {
   return data.choices[0].message.content.trim();
 }
 
-// Strip characters not accepted by Chimege TTS (keeps Cyrillic, spaces, and ?.!-'",:)
+// Parse the structured JSON the LLM returns; fall back to plain answer if malformed
+function parseAgentResponse(raw) {
+  try {
+    // Strip markdown code fences the model might add
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed.action === "string" && typeof parsed.text === "string") {
+      return parsed;
+    }
+  } catch { /* fall through */ }
+  return { action: "answer", text: raw };
+}
+
+// Log a routed complaint to stdout (can be replaced with DB/API call)
+function routeComplaint(department, summary, departmentLabel) {
+  const entry = {
+    time: new Date().toISOString(),
+    department,
+    departmentLabel,
+    summary,
+  };
+  console.log("[COMPLAINT ROUTED]", JSON.stringify(entry, null, 2));
+}
+
+// Keep only characters accepted by Chimege TTS: Cyrillic, space, and ?.!-'",:
 function sanitizeForTTS(text) {
-  return text
-    .replace(/[*#_`~\[\](){}|\\/<>@$%^&+=]/g, " ")
-    .replace(/ {2,}/g, " ")
-    .trim();
+  return normalizeMongolianNumbers(text)
+    .replace(/e-?halamj\.mn/gi, "и халамж мн")
+    .replace(/[^Ѐ-ӿ\s?!.\-'",:]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
 // TTS: text → WAV Buffer
@@ -193,16 +229,31 @@ wss.on("connection", (ws) => {
         ws.send(JSON.stringify({ type: "transcript", role: "user", text: userText }));
         ws.send(JSON.stringify({ type: "status", text: "Хариулт бэлдэж байна..." }));
 
-        const relevantBenefits = findRelevantBenefits(userText);
-        const contextSuffix = formatBenefitContext(relevantBenefits);
-        history.push({ role: "user", content: userText + contextSuffix });
-        const assistantText = await chat(history);
-        history.push({ role: "assistant", content: assistantText });
+        history.push({ role: "user", content: userText });
 
-        ws.send(JSON.stringify({ type: "transcript", role: "assistant", text: assistantText }));
+        const rawReply = await chat(history);
+        const agentResponse = parseAgentResponse(rawReply);
+        // Store the raw JSON reply so the model keeps full context
+        history.push({ role: "assistant", content: rawReply });
+
+        const { action, text: replyText, department, summary } = agentResponse;
+
+        if (action === "route" && department) {
+          const departmentLabel = DEPARTMENTS[department] || department;
+          routeComplaint(department, summary || userText, departmentLabel);
+          ws.send(JSON.stringify({
+            type: "routed",
+            department,
+            departmentLabel,
+            summary: summary || userText,
+          }));
+        }
+
+        ws.send(JSON.stringify({ type: "transcript", role: "assistant", text: replyText, action }));
         ws.send(JSON.stringify({ type: "status", text: "Дуу нийлэгжүүлж байна..." }));
 
-        const wavBuffer = await synthesize(assistantText);
+        const ttsText = replyText.length > 300 ? replyText.slice(0, 300) : replyText;
+        const wavBuffer = await synthesize(ttsText);
         const audioB64 = wavBuffer.toString("base64");
 
         ws.send(JSON.stringify({ type: "audio", audio: audioB64 }));

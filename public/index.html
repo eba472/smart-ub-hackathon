@@ -3,33 +3,139 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GPT Live — Монгол хэл</title>
+  <title>Ухаалаг Улаанбаатар!</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0f0f0f;
+      background: #1a1a2e;
       color: #e8e8e8;
       height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Phone shell ── */
+    .phone-shell {
+      position: relative;
+      width: 390px;
+      height: 844px;
+      max-height: 98dvh;
+      background: #0f0f0f;
+      border-radius: 52px;
+      border: 10px solid #2a2a2a;
+      box-shadow:
+        0 0 0 1px #111,
+        0 32px 80px rgba(0,0,0,0.7),
+        inset 0 0 0 1px #3a3a3a;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* side buttons */
+    .phone-shell::before {
+      content: '';
+      position: absolute;
+      left: -13px;
+      top: 120px;
+      width: 4px;
+      height: 36px;
+      background: #2a2a2a;
+      border-radius: 2px 0 0 2px;
+      box-shadow: 0 50px 0 #2a2a2a, 0 98px 0 #2a2a2a;
+    }
+    .phone-shell::after {
+      content: '';
+      position: absolute;
+      right: -13px;
+      top: 150px;
+      width: 4px;
+      height: 64px;
+      background: #2a2a2a;
+      border-radius: 0 2px 2px 0;
+    }
+
+    /* ── Status bar ── */
+    .status-bar {
+      flex-shrink: 0;
+      height: 52px;
+      padding: 14px 28px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .status-bar .time { letter-spacing: 0.01em; }
+
+    .status-bar .icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Dynamic island notch */
+    .dynamic-island {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 34px;
+      background: #000;
+      border-radius: 20px;
+      z-index: 10;
+    }
+
+    /* ── App content ── */
+    .app-content {
+      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 32px;
+      gap: 28px;
+      padding: 16px 24px;
+      overflow: hidden;
     }
 
+    /* ── Home bar ── */
+    .home-bar {
+      flex-shrink: 0;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-bottom: 8px;
+    }
+
+    .home-bar span {
+      width: 134px;
+      height: 5px;
+      background: #fff;
+      border-radius: 3px;
+      opacity: 0.3;
+    }
+
+    /* ── App UI ── */
     h1 {
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       font-weight: 600;
       letter-spacing: -0.02em;
       color: #fff;
+      text-align: center;
     }
 
     #status {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: #888;
       height: 20px;
+      text-align: center;
     }
 
     #mic-btn {
@@ -72,8 +178,8 @@
     }
 
     #transcript {
-      width: min(600px, 90vw);
-      max-height: 300px;
+      width: 100%;
+      max-height: 340px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
@@ -83,7 +189,7 @@
     .message {
       padding: 10px 14px;
       border-radius: 12px;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       line-height: 1.5;
       max-width: 85%;
     }
@@ -101,29 +207,91 @@
       border: 1px solid #2a2a2a;
     }
 
+    .message.assistant.clarify {
+      border-color: #7c5c00;
+      background: #1a1500;
+    }
+
+    .message.routed {
+      align-self: stretch;
+      background: #0a2a0a;
+      border: 1px solid #16a34a;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      max-width: 100%;
+    }
+
+    .routed-icon {
+      color: #16a34a;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+
+    .routed-summary {
+      color: #aaa;
+      font-size: 0.75rem;
+    }
+
     .hint {
-      font-size: 0.78rem;
+      font-size: 0.74rem;
       color: #555;
       text-align: center;
     }
   </style>
 </head>
 <body>
-  <h1>Ухаалаг Улаанбаатар!</h1>
+  <div class="phone-shell">
+    <!-- Dynamic island -->
+    <div class="dynamic-island"></div>
 
-  <div id="transcript"></div>
+    <!-- Status bar -->
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="icons">
+        <!-- Signal bars -->
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="white">
+          <rect x="0" y="6" width="3" height="6" rx="1"/>
+          <rect x="4.5" y="4" width="3" height="8" rx="1"/>
+          <rect x="9" y="2" width="3" height="10" rx="1"/>
+          <rect x="13.5" y="0" width="3" height="12" rx="1"/>
+        </svg>
+        <!-- Wifi -->
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="white">
+          <path d="M8 9.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/>
+          <path d="M8 6.5C9.7 6.5 11.2 7.2 12.3 8.3l1.4-1.4A7 7 0 0 0 8 4.5a7 7 0 0 0-5.7 2.4l1.4 1.4C4.8 7.2 6.3 6.5 8 6.5z"/>
+          <path d="M8 3.5c2.5 0 4.7 1 6.4 2.6L16 4.5A9.9 9.9 0 0 0 8 1.5a9.9 9.9 0 0 0-8 3.9l1.6 1.1C3.3 4.5 5.5 3.5 8 3.5z"/>
+        </svg>
+        <!-- Battery -->
+        <svg width="25" height="12" viewBox="0 0 25 12" fill="white">
+          <rect x="0" y="1" width="21" height="10" rx="2.5" stroke="white" stroke-width="1.2" fill="none"/>
+          <rect x="22" y="4" width="2.5" height="4" rx="1" fill="white" opacity="0.4"/>
+          <rect x="1.5" y="2.5" width="16" height="7" rx="1.5" fill="white"/>
+        </svg>
+      </div>
+    </div>
 
-  <button id="mic-btn" title="Дарж яриарай">
-    <svg id="mic-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-6 9a6 6 0 0 0 12 0h2a8 8 0 0 1-7 7.93V21h-2v-3.07A8 8 0 0 1 4 10h2z"/>
-    </svg>
-  </button>
+    <!-- App content -->
+    <div class="app-content">
+      <h1>Ухаалаг Улаанбаатар!</h1>
 
-  <div id="status">Дарж эхлүүлнэ үү</div>
-  <div class="hint">Товчийг барьж ярина уу, тавихад илгээгдэнэ.</div>
+      <div id="transcript"></div>
+
+      <button id="mic-btn" title="Дарж яриарай">
+        <svg id="mic-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-6 9a6 6 0 0 0 12 0h2a8 8 0 0 1-7 7.93V21h-2v-3.07A8 8 0 0 1 4 10h2z"/>
+        </svg>
+      </button>
+
+      <div id="status">Товч дарж ярина уу</div>
+      <div class="hint">Товчийг барьж ярина уу, тавихад илгээгдэнэ.</div>
+    </div>
+
+    <!-- Home bar -->
+    <div class="home-bar"><span></span></div>
+  </div>
 
   <audio id="audio-out" autoplay></audio>
-
   <script src="app.js"></script>
 </body>
 </html>
