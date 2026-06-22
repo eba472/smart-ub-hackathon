@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPT Live — Монгол хэл</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    #status {
+      font-size: 0.85rem;
+      color: #888;
+      height: 20px;
+    }
+
+    #mic-btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: none;
+      background: #1a1a1a;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 0 0 2px #333;
+    }
+
+    #mic-btn:hover { background: #252525; }
+    #mic-btn:active { transform: scale(0.95); }
+
+    #mic-btn.listening {
+      background: #dc2626;
+      box-shadow: 0 0 0 2px #dc2626, 0 0 24px 4px rgba(220,38,38,0.4);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    #mic-btn.speaking {
+      background: #16a34a;
+      box-shadow: 0 0 0 2px #16a34a, 0 0 24px 4px rgba(22,163,74,0.4);
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 2px #dc2626, 0 0 24px 4px rgba(220,38,38,0.4); }
+      50% { box-shadow: 0 0 0 2px #dc2626, 0 0 40px 8px rgba(220,38,38,0.6); }
+    }
+
+    #mic-icon {
+      width: 32px;
+      height: 32px;
+      fill: #e8e8e8;
+    }
+
+    #transcript {
+      width: min(600px, 90vw);
+      max-height: 300px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .message {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      max-width: 85%;
+    }
+
+    .message.user {
+      background: #1e3a5f;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.assistant {
+      background: #1a1a1a;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+      border: 1px solid #2a2a2a;
+    }
+
+    .hint {
+      font-size: 0.78rem;
+      color: #555;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Ухаалаг Улаанбаатар</h1>
+
+  <div id="transcript"></div>
+
+  <button id="mic-btn" title="Дарж яриарай">
+    <svg id="mic-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-6 9a6 6 0 0 0 12 0h2a8 8 0 0 1-7 7.93V21h-2v-3.07A8 8 0 0 1 4 10h2z"/>
+    </svg>
+  </button>
+
+  <div id="status">Дарж эхлүүлнэ үү</div>
+  <div class="hint">Товчийг барин ярина уу, тавихад хариулна</div>
+
+  <audio id="audio-out" autoplay></audio>
+
+  <script src="app.js"></script>
+</body>
+</html>
