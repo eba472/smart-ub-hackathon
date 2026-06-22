@@ -1,0 +1,24 @@
+name: Deploy Frontend to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # Change this to master if your default branch is named master
+    paths:
+      - 'frontend/public/**' # Only runs when frontend files change
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy Frontend to GH Pages branch
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: frontend/public # Deploys only the public folder
+          branch: gh-pages

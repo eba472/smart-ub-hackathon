@@ -78,7 +78,7 @@ Info:
 const app = express();
 const server = createServer(app);
 
-app.use(express.static(join(__dirname, "public")));
+app.use(express.static(join(__dirname, "../frontend/public")));
 
 // Per-connection conversation history
 function makeHistory() {
