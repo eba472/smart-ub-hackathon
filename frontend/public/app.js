@@ -172,7 +172,11 @@ function sendHeldAudio() {
 
 function connect() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  const host = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+    ? "localhost:3000"
+    : "ub-voice-assistant-backend.onrender.com"; // <--- Updated with your live Render URL (no https:// prefix)
+
+  ws = new WebSocket(`${proto}://${host}/ws`);
 
   ws.onopen = async () => {
     isConnected = true;
