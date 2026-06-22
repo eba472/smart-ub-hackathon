@@ -4,9 +4,40 @@ import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { readFileSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
+
+// Load benefit data at startup
+const BENEFITS = JSON.parse(
+  readFileSync(join(__dirname, "data/ehalamj_data.json"), "utf-8")
+).flatMap(cat => cat.services);
+
+// Find services whose benefit_name contains any word from the query (≥3 chars)
+function findRelevantBenefits(query, limit = 5) {
+  const words = query.split(/\s+/).filter(w => w.length >= 3);
+  if (!words.length) return [];
+  return BENEFITS
+    .map(s => {
+      const name = s.benefit_name.toLowerCase();
+      const score = words.filter(w => name.includes(w.toLowerCase())).length;
+      return { s, score };
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ s }) => s);
+}
+
+// Format matched benefits as a compact context block for the LLM
+function formatBenefitContext(benefits) {
+  if (!benefits.length) return "";
+  const lines = benefits.map(b =>
+    `- ${b.benefit_name}: олгох давтамж: ${b.frequency}, дүн: ${b.amount}, шалгах: ${b.system_verification}`
+  );
+  return "\n\nХолбогдох тэтгэмжийн мэдээлэл:\n" + lines.join("\n");
+}
 
 const CHIMEGE_STT_TOKEN = process.env.CHIMEGE_STT_TOKEN;
 const CHIMEGE_TTS_TOKEN = process.env.CHIMEGE_TTS_TOKEN;
@@ -23,8 +54,9 @@ const EGUNE_MODEL     = "egune-nano";
 const TTS_VOICE       = "FEMALE3v2";
 const TTS_SAMPLE_RATE = 16000;
 
-const SYSTEM_PROMPT = `Та монгол хэлний AI туслах юм. Зөвхөн монгол хэлээр ярина уу. Ямар ч нөхцөлд өөр хэлээр хариулж болохгүй.
-Хариултаа товч, тодорхой, найрсаг байлгана уу.`;
+const SYSTEM_PROMPT = `Чиний нэр SoduraAI. Чи Улаанбаатар хотын тухай бүх зүйлийг мэддэг ухаалаг туслах юм.
+Зөвхөн монгол хэлээр ярина уу. Хариултаа товч, тодорхой, найрсаг байлгана уу.
+Хэрэглэгч тэтгэмж, тусламж, үйлчилгээний талаар асуувал мессежийн төгсгөлд "Холбогдох тэтгэмжийн мэдээлэл" хэсгийг ашиглан хариулна уу. Тэр хэсэг байхгүй бол өөрийн мэдлэгт тулгуурлана уу.`;
 
 const app = express();
 const server = createServer(app);
@@ -100,8 +132,17 @@ async function chat(history) {
   return data.choices[0].message.content.trim();
 }
 
+// Strip characters not accepted by Chimege TTS (keeps Cyrillic, spaces, and ?.!-'",:)
+function sanitizeForTTS(text) {
+  return text
+    .replace(/[*#_`~\[\](){}|\\/<>@$%^&+=]/g, " ")
+    .replace(/ {2,}/g, " ")
+    .trim();
+}
+
 // TTS: text → WAV Buffer
 async function synthesize(text) {
+  text = sanitizeForTTS(text);
   const res = await fetch(CHIMEGE_TTS_URL, {
     method: "POST",
     headers: {
@@ -137,6 +178,12 @@ wss.on("connection", (ws) => {
       try {
         ws.send(JSON.stringify({ type: "status", text: "Таны яриа танигдаж байна..." }));
 
+        const wavSize = 44 + pcmBuffer.length; // approximate WAV size
+        if (wavSize < 5 * 1024) {
+          ws.send(JSON.stringify({ type: "status", text: "Ярих хугацаа хэт богино байна. Дахин оролдоно уу." }));
+          return;
+        }
+
         const userText = await transcribe(pcmBuffer);
         if (!userText) {
           ws.send(JSON.stringify({ type: "status", text: "Дуу таних амжилтгүй. Дахин оролдоно уу." }));
@@ -146,7 +193,9 @@ wss.on("connection", (ws) => {
         ws.send(JSON.stringify({ type: "transcript", role: "user", text: userText }));
         ws.send(JSON.stringify({ type: "status", text: "Хариулт бэлдэж байна..." }));
 
-        history.push({ role: "user", content: userText });
+        const relevantBenefits = findRelevantBenefits(userText);
+        const contextSuffix = formatBenefitContext(relevantBenefits);
+        history.push({ role: "user", content: userText + contextSuffix });
         const assistantText = await chat(history);
         history.push({ role: "assistant", content: assistantText });
 
