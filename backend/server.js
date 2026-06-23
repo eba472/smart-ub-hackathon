@@ -22,58 +22,21 @@ const CHIMEGE_STT_URL = "https://api.chimege.com/v1.2/transcribe";
 const CHIMEGE_TTS_URL = "https://api.chimege.com/v1.2/synthesize";
 const EGUNE_CHAT_URL  = "https://api.egune.com/v1/chat/completions";
 const EGUNE_MODEL     = "egune-nano";
-const TTS_VOICE       = "FEMALE3v2";
+const TTS_VOICE       = "MALE4v2";
 const TTS_SAMPLE_RATE = 16000;
 
-// Departments the assistant can route complaints to
-const DEPARTMENTS = {
-  "замын цагдаа": "Замын цагдаагийн газар (70110101)",
-  "нийтийн тээвэр": "Нийтийн тээврийн газар (70119911)",
-  "цэвэрлэгээ": "Нийслэлийн цэвэрлэгээний газар (70119900)",
-  "дулааны хангамж": "Улаанбаатар дулааны сүлжээ (70103600)",
-  "цахилгаан хангамж": "Улаанбаатар цахилгаан түгээх сүлжээ (70110011)",
-  "усан хангамж": "Усан хангамж ариутгах татуургын газар (70126161)",
-  "орон сууц": "Нийтийн орон сууцны газар (70124040)",
-  "хог хаягдал": "Хог тээвэрлэлтийн компани (70009900)",
-  "нийтлэг гомдол": "Улаанбаатар хотын иргэдийн төлөөлөгчдийн хурал (18003311)",
-};
 
 const SYSTEM_PROMPT = `Чиний нэр Улаанбаатарын хөтөч гэдэг. хотын болон төрийн үйлчилгээ мэддэг ухаалаг туслах.
 Зөвхөн монгол хэлээр ярина уу.
-
-МАШ ЧУХАЛ: Хариултаа ЗААВАЛ дараах JSON форматаар өг. Өөр текст нэмж болохгүй, зөвхөн цэвэр JSON:
-{"action":"...","text":"..."}
-
-JSON БИЧИХ ДҮРЭМ (ЭНЭ ДҮРМИЙГ ЗӨРЧИЖ БОЛОХГҮЙ):
-1. text дотор ШИНЭ МӨР (Enter/Newline) гаргаж болохгүй! Бүх хариултыг нэг мөрөнд үргэлжлүүлж бич.
-2. text дотор ДАВХАР ХАШИЛТ (") ашиглаж болохгүй! Шаардлагатай бол ГАНЦ ХАШИЛТ (') ашигла (жишээ нь: 'Цалинтай ээж').
-
-"action" утгууд:
-- "answer"  — ердийн асуулт хариулт (тэтгэмж, мэдээлэл г.м.)
-- "clarify" — гомдол/санал гаргасан боловч дэлгэрэнгүй мэдээлэл дутуу байвал тодруулах асуулт тавина
-- "route"   — гомдлын мэдээлэл бүрэн цуглуулсан тул байгууллагад чиглүүлнэ; нэмж {"department":"...","summary":"..."} оруулна
-
-Дүрмүүд:
-1. Иргэн гомдол, санал, өргөдөл гаргах гэж байвал "clarify" ашиглаж дараах мэдээллийг ДАРААЛАН НЭГ НЭГЭЭР асууж цуглуул:
-   а) Гомдлын нарийвчилсан тайлбар
-   б) Хаана болсон (хаяг, дүүрэг)
-   в) Хэзээ болсон (огноо/цаг)
-   г) Холбоо барих утас (заавал биш)
-2. Дэлгэрэнгүй мэдээлэл бүрэн болмогц "route" ашиглан зохих байгууллагад чиглүүл.
-   department талбарт яг нэг утгыг оруулна: ${Object.keys(DEPARTMENTS).join(" | ")}
-   summary талбарт гомдлын товч агуулгыг оруулна.
-   МАШ ЧУХАЛ: "route" хийж байсан ч "text" талбарыг ЗААВАЛ үлдээж, иргэнд хандаж "Таны хүсэлтийг бүртгэлээ" гэж бичнэ.
-3. Ердийн асуулт хариулахдаа "answer" ашиглана.
-4. "text" утга МАШ ТОВЧ: 2-3 өгүүлбэр, 200 тэмдэгтээс хэтрэхгүй.
-5. Мэндчилгээ, танилцуулга, "доор харуулав" зэрэг хэллэг бүү ашигла.
+Хариулт МАШ ТОВЧ бай: 2-3 өгүүлбэр, 200 тэмдэгтээс хэтрэхгүй.
+Мэндчилгээ, танилцуулга, "доор харуулав" зэрэг хэллэг бүү ашигла.
 
 Info:
-Жирэмсний 5 сартайгаас хүүхэд төрүүлэх хүртэлх хугацаанд олгох тэтгэмж, Сар бүр 40,000₮.
-Э-халамж.мн сайтаар онлайн эсвэл ажлын өдрүүдэд 8:30-17:30 цагийн хооронд очиж бүртгүүлэх боломжтой.
+автобус -> 10 дугаар хорооллоос вогзал руу явах 46 дугаартай автобус 2 буудлийн цаана явж байна. Удахгүй ирнэ
 
-Цалинтай ээж хөтөлбөрийн тэтгэмж
-0-3 хүртэлх насны хүүхдээ гэрээр асарч байгаа эхчүүдэд (эсвэл ганц бие эцэгт) сар бүр олгодог.
-Хэмжээ: Сар бүр 50,000 төгрөг.
+Түгжрэлийн мэдээлэл -> Машинаар явбал жоохон түгжрэлтэй байна, ойролцоогоор 30 минут явахаар байна.
+
+Залилан -> Хаан банк урамшуулал зарлаад байна, үнэн үү? -> Хэрвэй таны нууц үгийг л асууж байвал залилан шүү. Та болгоомжтой байгаарай.
 
 Манай дүүргийн мэдээ
 Эрчим хүчний гудамжны зургаан км авто замын хучилтын ажлыг есдүгээр сарын 1-нээс өмнө дуусгана
@@ -136,8 +99,7 @@ async function transcribe(pcmBuffer) {
   return (await res.text()).trim();
 }
 
-// LLM: messages → raw assistant reply string
-// LLM: messages → raw assistant reply string
+// LLM: messages → plain text reply
 async function chat(history) {
   const res = await fetch(EGUNE_CHAT_URL, {
     method: "POST",
@@ -145,7 +107,11 @@ async function chat(history) {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${EGUNE_API_KEY}`,
     },
-    body: JSON.stringify({ model: EGUNE_MODEL, messages: history }),
+    body: JSON.stringify({
+      model: EGUNE_MODEL,
+      messages: history,
+      chat_template_kwargs: { enable_thinking: false },
+    }),
   });
   if (!res.ok) {
     const err = await res.text().catch(() => res.status);
@@ -153,45 +119,10 @@ async function chat(history) {
   }
   const data = await res.json();
   
-  // FIX: Safely handle null content
   const content = data.choices[0]?.message?.content || "";
   return content.trim();
 }
 
-// Parse the structured JSON the LLM returns; fall back to plain answer if malformed
-// Parse the structured JSON the LLM returns; fall back to plain answer if malformed
-function parseAgentResponse(raw) {
-  try {
-    // Strip markdown code fences the model might add
-    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-    const parsed = JSON.parse(cleaned);
-    
-    if (parsed && typeof parsed.action === "string") {
-      // FIX: If the AI forgot to include the "text" field, provide a polite fallback
-      // instead of rejecting the entire JSON object.
-      if (typeof parsed.text !== "string" || parsed.text.trim() === "") {
-        parsed.text = parsed.action === "route" 
-          ? "Таны хүсэлтийг холбогдох байгууллага руу шилжүүллээ." 
-          : "Уучлаарай, нэмэлт мэдээлэл алга байна.";
-      }
-      return parsed;
-    }
-  } catch { /* fall through */ }
-  
-  // If it's completely unparsable JSON, fallback to raw text
-  return { action: "answer", text: raw };
-}
-
-// Log a routed complaint to stdout (can be replaced with DB/API call)
-function routeComplaint(department, summary, departmentLabel) {
-  const entry = {
-    time: new Date().toISOString(),
-    department,
-    departmentLabel,
-    summary,
-  };
-  console.log("[COMPLAINT ROUTED]", JSON.stringify(entry, null, 2));
-}
 
 // Keep only characters accepted by Chimege TTS: Cyrillic, space, and ?.!-'",:
 function sanitizeForTTS(text) {
@@ -308,25 +239,10 @@ wss.on("connection", (ws) => {
 
         history.push({ role: "user", content: userText });
 
-        const rawReply = await chat(history);
-        const agentResponse = parseAgentResponse(rawReply);
-        // Store the raw JSON reply so the model keeps full context
-        history.push({ role: "assistant", content: rawReply });
+        const replyText = await chat(history);
+        history.push({ role: "assistant", content: replyText });
 
-        const { action, text: replyText, department, summary } = agentResponse;
-
-        if (action === "route" && department) {
-          const departmentLabel = DEPARTMENTS[department] || department;
-          routeComplaint(department, summary || userText, departmentLabel);
-          ws.send(JSON.stringify({
-            type: "routed",
-            department,
-            departmentLabel,
-            summary: summary || userText,
-          }));
-        }
-
-        ws.send(JSON.stringify({ type: "transcript", role: "assistant", text: replyText, action }));
+        ws.send(JSON.stringify({ type: "transcript", role: "assistant", text: replyText }));
         ws.send(JSON.stringify({ type: "status", text: "Дуу нийлэгжүүлж байна..." }));
 
         const ttsText = replyText.length > 300 ? replyText.slice(0, 300) : replyText;
