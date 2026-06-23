@@ -179,6 +179,13 @@
       box-shadow: 0 0 0 2px #333;
       z-index: 2;
       flex-shrink: 0;
+      
+      touch-action: none;               
+      user-select: none;                
+      -webkit-user-select: none;        
+      -webkit-touch-callout: none;     
+      outline: none;                    
+      -webkit-tap-highlight-color: transparent; /* Removes blue tap highlight on mobile */
     }
 
     #mic-btn:hover { background: #252525; }
@@ -204,6 +211,8 @@
       width: 32px;
       height: 32px;
       fill: #e8e8e8;
+      /* --- FIX FOR STUCK BUTTON --- */
+      pointer-events: none; /* Prevents the SVG from stealing the touch event from the button */
     }
 
     #transcript {
@@ -297,6 +306,7 @@
       background: rgba(22, 163, 74, 0.1);
       border: 1px solid rgba(22, 163, 74, 0.2);
     }
+    
 
     .activity-log.fade-out {
       opacity: 0;
