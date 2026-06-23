@@ -69,6 +69,7 @@
       font-size: 0.75rem;
       font-weight: 600;
       color: #fff;
+      z-index: 10;
     }
 
     .status-bar .time { letter-spacing: 0.01em; }
@@ -98,10 +99,30 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-end;
-      gap: 28px;
-      padding: 16px 24px 48px;
+      justify-content: center; /* Changed from flex-end to center */
+      gap: 32px;               /* Increased gap for a cleaner look */
+      padding: 16px 24px;
       overflow: hidden;
+      position: relative;
+    }
+
+    /* Ensure app content stays above the watermark */
+    .app-content > * {
+      z-index: 2;
+      position: relative;
+    }
+
+    /* ── Watermark Background ── */
+    .bg-watermark {
+      position: absolute;
+      top: 50%;            /* Center vertically */
+      left: 50%;           /* Center horizontally */
+      transform: translate(-50%, -50%); /* Offsets the image by its own half to center it */
+      width: 480px;        /* Increased size (1.5x of original 320px) */
+      height: auto;
+      opacity: 0.05;       /* Still barely visible */
+      pointer-events: none; 
+      z-index: 1;          /* Behind text/buttons */
     }
 
     /* ── Home bar ── */
@@ -112,6 +133,7 @@
       align-items: center;
       justify-content: center;
       padding-bottom: 8px;
+      z-index: 10;
     }
 
     .home-bar span {
@@ -124,11 +146,14 @@
 
     /* ── App UI ── */
     h1 {
-      font-size: 1.4rem;
-      font-weight: 600;
+      margin-top: 0; 
+      font-size: 1.6rem; /* Made slightly larger for the center focus */
+      font-weight: 700;
       letter-spacing: -0.02em;
       color: #fff;
       text-align: center;
+      z-index: 2;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5); /* Helps text pop over the crest */
     }
 
     #status {
@@ -179,11 +204,12 @@
 
     #transcript {
       width: 100%;
-      max-height: 340px;
+      max-height: 200px; /* Limited height to keep the UI centered */
       overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: 8px;
+      z-index: 2;
     }
 
     .message {
@@ -273,6 +299,10 @@
 
     <!-- App content -->
     <div class="app-content">
+      
+      <!-- BACKGROUND WATERMARK IMAGE HERE -->
+      <img src="logo.png" alt="Улаанбаатар" class="bg-watermark">
+
       <h1>Ухаалаг Улаанбаатар!</h1>
 
       <div id="transcript"></div>
