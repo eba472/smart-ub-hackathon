@@ -1,6 +1,7 @@
 const micBtn     = document.getElementById("mic-btn");
 const statusEl   = document.getElementById("status");
 const transcript = document.getElementById("transcript");
+const activityLogContainer = document.getElementById("activity-log-container");
 
 let ws          = null;
 let audioCtx    = null;
@@ -15,7 +16,12 @@ const SAMPLE_RATE = 16000;
 
 // --- UI ---
 
-function setStatus(text) { statusEl.textContent = text; }
+function setStatus(text) {
+    const isProcessing = activityLogContainer.querySelector(".activity-log:not(.done)");
+    if (!isProcessing) {
+        activityLogContainer.innerHTML = `<span class="status-text">${text}</span>`;
+    }
+}
 
 function addMessage(role, text, action) {
   const el = document.createElement("div");
@@ -25,6 +31,33 @@ function addMessage(role, text, action) {
   transcript.appendChild(el);
   transcript.scrollTop = transcript.scrollHeight;
   return el;
+}
+
+function startProcessingUX(text) {
+  activityLogContainer.innerHTML = `
+    <div class="activity-log">
+      <div class="spinner"></div>
+      <span>${text}</span>
+    </div>`;
+}
+
+function stopProcessingUX() {
+    activityLogContainer.innerHTML = "";
+}
+
+function finishProcessingUX(finalText = "Амжилттай") {
+  const logEl = activityLogContainer.querySelector(".activity-log");
+  if (logEl) {
+    logEl.classList.add("done");
+    logEl.innerHTML = `<div class="checkmark"></div><span>${finalText}</span>`;
+
+    setTimeout(() => {
+      logEl.classList.add("fade-out");
+      setTimeout(() => {
+        activityLogContainer.innerHTML = "";
+      }, 800);
+    }, 2000);
+  }
 }
 
 function addRoutedCard(department, departmentLabel, summary) {
@@ -38,10 +71,10 @@ function addRoutedCard(department, departmentLabel, summary) {
 // --- Audio context ---
 
 function ensureAudioContext() {
-  if (!audioCtx || audioCtx.state === "closed") {
-    audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
-  }
-  if (audioCtx.state === "suspended") audioCtx.resume();
+    if (!audioCtx || audioCtx.state === "closed") {
+        audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
 }
 
 // --- WAV playback ---
@@ -152,13 +185,20 @@ function stopMic() {
 // --- Send collected audio ---
 
 function sendHeldAudio() {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  if (heldChunks.length === 0) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    setStatus("Товч дарж ярина уу");
+    return;
+  }
+  
+  // FIX: Reset properly if user clicked too fast and NO audio chunks were gathered
+  if (heldChunks.length === 0) {
+    setStatus("Товч дарж ярина уу");
+    return;
+  }
 
   const totalLen = heldChunks.reduce((s, c) => s + c.length, 0);
   
-  // FIX: If the recording is less than 0.3 seconds, it was an accidental quick click.
-  // Ignore it completely so we don't lock the UI or spam the server.
+  // FIX: Prevent accidental quick clicks, reset UI cleanly.
   if (totalLen < SAMPLE_RATE * 0.3) {
     heldChunks = [];
     setStatus("Товч дарж ярина уу");
@@ -171,10 +211,16 @@ function sendHeldAudio() {
   heldChunks = [];
 
   isBusy = true;
-  setStatus("Боловсруулж байна...");
-
-  const int16 = float32ToInt16(combined);
-  ws.send(JSON.stringify({ type: "audio", audio: int16ToBase64(int16) }));
+  startProcessingUX("Илгээж байна..."); 
+  
+  try {
+    const int16 = float32ToInt16(combined);
+    ws.send(JSON.stringify({ type: "audio", audio: int16ToBase64(int16) }));
+  } catch (e) {
+    isBusy = false;
+    stopProcessingUX();
+    setStatus("Алдаа гарлаа");
+  }
 }
 
 // --- WebSocket ---
@@ -183,7 +229,7 @@ function connect() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const host = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
     ? "localhost:3000"
-    : "ub-voice-assistant-backend.onrender.com"; // <--- Updated with your live Render URL (no https:// prefix)
+    : "ub-voice-assistant-backend.onrender.com"; 
 
   ws = new WebSocket(`${proto}://${host}/ws`);
 
@@ -224,30 +270,37 @@ function cleanup() {
 async function handleServerMessage(msg) {
   switch (msg.type) {
     case "status":
-      setStatus(msg.text);
-      // FIX: Unlock the UI if the server failed STT or rejected short audio
-      // without triggering an "audio" or "error" event.
-      if (msg.text.includes("Дахин оролдоно уу")) {
-        isBusy = false;
-        micBtn.classList.remove("speaking");
+      if (isBusy) {
+        startProcessingUX(msg.text);
+      } else {
+        setStatus(msg.text);
       }
       break;
+
     case "transcript":
       addMessage(msg.role, msg.text, msg.action);
       break;
+
     case "routed":
       addRoutedCard(msg.department, msg.departmentLabel, msg.summary);
       break;
+
     case "audio":
+      finishProcessingUX("Хариу бэлэн"); 
       await playWav(msg.audio);
+      
+      // FIX: Ensure button is returned to base color after playback completes
+      micBtn.classList.remove("speaking"); 
+      
       isBusy = false;
-      micBtn.classList.remove("speaking");
       setStatus("Товч дарж ярина уу");
       break;
+
     case "error":
-      console.error("Server error:", msg.message);
-      setStatus(`Алдаа: ${msg.message}`);
+      stopProcessingUX();
+      micBtn.classList.remove("speaking", "listening");
       isBusy = false;
+      setStatus(`Алдаа гарлаа`);
       break;
   }
 }
@@ -255,12 +308,17 @@ async function handleServerMessage(msg) {
 // --- Push-to-talk button events ---
 
 function onPressStart(e) {
-  e.preventDefault();
-  if (!isConnected || isBusy) return;
-  isHolding  = true;
-  heldChunks = [];
-  micBtn.classList.add("listening");
-  setStatus("Ярж байна...");
+    e.preventDefault();
+    if (!isConnected || isBusy) return;
+
+    isHolding = true;
+    heldChunks = [];
+    
+    // FIX: Remove "speaking" state if somehow still active when pressed again
+    micBtn.classList.remove("speaking"); 
+    micBtn.classList.add("listening");
+    
+    setStatus("Ярьж байна...");
 }
 
 function onPressEnd(e) {

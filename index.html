@@ -80,6 +80,11 @@
       gap: 6px;
     }
 
+    .status-text {
+      font-size: 0.82rem;
+      color: #888;
+    }
+
     /* Dynamic island notch */
     .dynamic-island {
       position: absolute;
@@ -99,9 +104,8 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center; /* Changed from flex-end to center */
-      gap: 32px;               /* Increased gap for a cleaner look */
-      padding: 16px 24px;
+      gap: 20px;
+      padding: 10px 24px 30px;
       overflow: hidden;
       position: relative;
     }
@@ -115,14 +119,14 @@
     /* ── Watermark Background ── */
     .bg-watermark {
       position: absolute;
-      top: 50%;            /* Center vertically */
-      left: 50%;           /* Center horizontally */
-      transform: translate(-50%, -50%); /* Offsets the image by its own half to center it */
-      width: 480px;        /* Increased size (1.5x of original 320px) */
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 480px;
       height: auto;
-      opacity: 0.05;       /* Still barely visible */
+      opacity: 0.05;
       pointer-events: none; 
-      z-index: 1;          /* Behind text/buttons */
+      z-index: 1;
     }
 
     /* ── Home bar ── */
@@ -146,14 +150,12 @@
 
     /* ── App UI ── */
     h1 {
-      margin-top: 0; 
-      font-size: 1.6rem; /* Made slightly larger for the center focus */
+      margin-top: 30px; 
+      font-size: 1.5rem;
       font-weight: 700;
-      letter-spacing: -0.02em;
       color: #fff;
       text-align: center;
       z-index: 2;
-      text-shadow: 0 2px 10px rgba(0,0,0,0.5); /* Helps text pop over the crest */
     }
 
     #status {
@@ -173,8 +175,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+      transition: background 0.2s, transform 0.1s;
       box-shadow: 0 0 0 2px #333;
+      z-index: 2;
+      flex-shrink: 0;
     }
 
     #mic-btn:hover { background: #252525; }
@@ -203,13 +207,24 @@
     }
 
     #transcript {
+      flex: 1;
       width: 100%;
-      max-height: 200px; /* Limited height to keep the UI centered */
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 12px;
       z-index: 2;
+      padding-top: 20px;
+      
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    #transcript::-webkit-scrollbar {
+      display: none;
+    }
+    #transcript::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
     }
 
     .message {
@@ -264,31 +279,79 @@
       color: #555;
       text-align: center;
     }
+
+    .activity-log {
+      font-size: 0.78rem;
+      color: #5d9cec;
+      background: rgba(93, 156, 236, 0.1);
+      padding: 6px 16px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(93, 156, 236, 0.15);
+    }
+
+    .activity-log.done {
+      color: #16a34a;
+      background: rgba(22, 163, 74, 0.1);
+      border: 1px solid rgba(22, 163, 74, 0.2);
+    }
+
+    .activity-log.fade-out {
+      opacity: 0;
+      transition: opacity 0.8s ease-out;
+    }
+
+    #activity-log-container {
+      height: 40px; 
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    .spinner {
+      width: 10px;
+      height: 10px;
+      border: 2px solid rgba(93, 156, 236, 0.2);
+      border-top: 2px solid #5d9cec;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .checkmark {
+      width: 12px;
+      height: 12px;
+      display: inline-block;
+      border-left: 2px solid #16a34a;
+      border-bottom: 2px solid #16a34a;
+      transform: rotate(-45deg);
+      margin-bottom: 2px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
 <body>
   <div class="phone-shell">
-    <!-- Dynamic island -->
     <div class="dynamic-island"></div>
 
-    <!-- Status bar -->
     <div class="status-bar">
       <span class="time">9:41</span>
       <div class="icons">
-        <!-- Signal bars -->
         <svg width="17" height="12" viewBox="0 0 17 12" fill="white">
           <rect x="0" y="6" width="3" height="6" rx="1"/>
           <rect x="4.5" y="4" width="3" height="8" rx="1"/>
           <rect x="9" y="2" width="3" height="10" rx="1"/>
           <rect x="13.5" y="0" width="3" height="12" rx="1"/>
         </svg>
-        <!-- Wifi -->
         <svg width="16" height="12" viewBox="0 0 16 12" fill="white">
           <path d="M8 9.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/>
           <path d="M8 6.5C9.7 6.5 11.2 7.2 12.3 8.3l1.4-1.4A7 7 0 0 0 8 4.5a7 7 0 0 0-5.7 2.4l1.4 1.4C4.8 7.2 6.3 6.5 8 6.5z"/>
           <path d="M8 3.5c2.5 0 4.7 1 6.4 2.6L16 4.5A9.9 9.9 0 0 0 8 1.5a9.9 9.9 0 0 0-8 3.9l1.6 1.1C3.3 4.5 5.5 3.5 8 3.5z"/>
         </svg>
-        <!-- Battery -->
         <svg width="25" height="12" viewBox="0 0 25 12" fill="white">
           <rect x="0" y="1" width="21" height="10" rx="2.5" stroke="white" stroke-width="1.2" fill="none"/>
           <rect x="22" y="4" width="2.5" height="4" rx="1" fill="white" opacity="0.4"/>
@@ -297,12 +360,8 @@
       </div>
     </div>
 
-    <!-- App content -->
     <div class="app-content">
-      
-      <!-- BACKGROUND WATERMARK IMAGE HERE -->
       <img src="logo.png" alt="Улаанбаатар" class="bg-watermark">
-
       <h1>Ухаалаг Улаанбаатар!</h1>
 
       <div id="transcript"></div>
@@ -313,15 +372,14 @@
         </svg>
       </button>
 
-      <div id="status">Товч дарж ярина уу</div>
+      <div id="activity-log-container"></div> 
+
       <div class="hint">Товчийг барьж ярина уу, тавихад илгээгдэнэ.</div>
     </div>
 
-    <!-- Home bar -->
     <div class="home-bar"><span></span></div>
   </div>
 
-  <audio id="audio-out" autoplay></audio>
   <script src="app.js"></script>
 </body>
 </html>
