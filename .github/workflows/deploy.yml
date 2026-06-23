@@ -5,7 +5,7 @@ on:
     branches:
       - main # Change this to master if your default branch is named master
     paths:
-      - 'frontend/public/**' # Only runs when frontend files change
+      - 'frontend/**' # Only runs when frontend files change
 
 permissions:
   contents: write
